@@ -48,7 +48,32 @@ def positive_int(input_str: str) -> int:
     return i
 
 
-def run_worker(cpu: int, mem_limit: int, args: argparse.Namespace, queue: multiprocessing.Queue) -> None:
+def get_numa_nodes_and_cpus():
+    SYS_PATH = "/sys/devices/system/node/"
+
+    numa_nodes = []
+    if not os.path.exists(SYS_PATH):
+        numa_nodes = [[i for i in range(os.cpu_count())]]
+    else:
+        for node_dir in os.listdir(SYS_PATH):
+            if node_dir.startswith("node"):
+                node_path = os.path.join(SYS_PATH, node_dir, "cpulist")
+                if os.path.exists(node_path):
+                    with open(node_path, "r") as f:
+                        cpus = f.read().strip().split(",")
+                    numa_nodes.append(cpus)
+                    
+    def callback(num_cores):
+        for numa_node in numa_nodes:
+            if num_cores <= len(numa_node):
+                cpu_cores = ",".join([numa_node.pop() for i in range(num_cores)])
+                return cpu_cores
+        raise ValueError("Not enough cores available") 
+    return callback
+
+
+# def run_worker(cpu: int,  mem_limit: int, args: argparse.Namespace, queue: multiprocessing.Queue) -> None:
+def run_worker(cpu_cores: str, mem_limit: int, args: argparse.Namespace, queue: multiprocessing.Queue) -> None:
     """
     Executes the algorithm based on the provided parameters.
 
@@ -70,9 +95,11 @@ def run_worker(cpu: int, mem_limit: int, args: argparse.Namespace, queue: multip
         if args.local:
             run(definition, args.dataset, args.count, args.runs, args.batch)
         else:
-            cpu_limit = str(cpu) if not args.batch else f"0-{multiprocessing.cpu_count() - 1}"
+            # cpu_limit = str(cpu) if not args.batch else f"0-{multiprocessing.cpu_count() - 1}"
+            if not args.batch:
+                cpu_cores = f"0-{multiprocessing.cpu_count() - 1}"
             
-            run_docker(definition, args.dataset, args.count, args.runs, args.timeout, args.batch, cpu_limit, mem_limit)
+            run_docker(definition, args.dataset, args.count, args.runs, args.timeout, args.batch, cpu_cores, mem_limit)
 
 
 def parse_arguments() -> argparse.Namespace:
@@ -104,6 +131,12 @@ def parse_arguments() -> argparse.Namespace:
         type=positive_int,
         help="run each algorithm instance %(metavar)s times and use only" " the best result",
         default=5,
+    )
+    parser.add_argument(
+        "--cores",
+        default=1,
+        type=positive_int,
+        help="the number of cores for each algorithm run (only used in Docker mode)", 
     )
     parser.add_argument(
         "--timeout",
@@ -239,23 +272,31 @@ def create_workers_and_execute(definitions: List[Definition], args: argparse.Nam
                    one worker.
     """
     cpu_count = multiprocessing.cpu_count()
-    if args.parallelism > cpu_count - 1:
-        raise Exception(f"Parallelism larger than {cpu_count - 1}! (CPU count minus one)")
+    if (args.parallelism * args.cores) > cpu_count - 1:
+        raise Exception(f"{args.parallelism}-parallelism with {args.cores}-cores larger than {cpu_count - 1}! (CPU count minus one)")
 
     if args.batch and args.parallelism > 1:
         raise Exception(
             f"Batch mode uses all available CPU resources, --parallelism should be set to 1. (Was: {args.parallelism})"
         )
-
-    task_queue = multiprocessing.Queue()
+    # END OF VALIDATION
+    algorithms = list(set([d.algorithm for d in definitions]))
+    task_queues = []
+    for i in range(args.parallelism):
+        task_queues.append(multiprocessing.Queue())
     for definition in definitions:
-        task_queue.put(definition)
+        task_queues[algorithms.index(definition.algorithm) % args.parallelism].put(definition)
+    
 
-    memory_margin = 500e6  # reserve some extra memory for misc stuff
+    # memory_margin = 500e6  # reserve some extra memory for misc stuff
+    memory_margin = 8000e6  # 8GB for other processes by CGCG
     mem_limit = int((psutil.virtual_memory().available - memory_margin) / args.parallelism)
-
+    ##
+    cpu_cores = get_numa_nodes_and_cpus()
+    # cpu_cores for this process
+    cpu_cores(args.cores)
     try:
-        workers = [multiprocessing.Process(target=run_worker, args=(i + 1, mem_limit, args, task_queue)) for i in range(args.parallelism)]
+        workers = [multiprocessing.Process(target=run_worker, args=(cpu_cores(args.cores), mem_limit, args, task_queues[i])) for i in range(args.parallelism)]
         [worker.start() for worker in workers]
         [worker.join() for worker in workers]
     finally:

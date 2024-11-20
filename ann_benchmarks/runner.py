@@ -211,7 +211,7 @@ def run(definition: Definition, dataset_name: str, count: int, run_count: int, b
         run_count (int): The number of runs.
         batch (bool): If true, runs in batch mode.
     """
-    total_time = time.time()
+    start_total_time = time.time()
     algo = instantiate_algorithm(definition)
     assert not definition.query_argument_groups or hasattr(
         algo, "set_query_arguments"
@@ -229,19 +229,21 @@ function"""
         build_time, index_size = build_index(algo, X_train)
 
         query_argument_groups = definition.query_argument_groups or [[]]  # Ensure at least one iteration
-
+        total_test_time = 0
         for pos, query_arguments in enumerate(query_argument_groups, 1):
             print(f"Running query argument group {pos} of {len(query_argument_groups)}...")
             if query_arguments:
                 algo.set_query_arguments(*query_arguments)
-            total_test_time = time.time() 
+            test_time = time.time() 
             descriptor, results = run_individual_query(algo, X_train, X_test, distance, count, run_count, batch)
-            total_test_time = time.time() - total_test_time
-            total_time = time.time() - total_time
+            test_time = time.time() - test_time
+            total_test_time += test_time
+            total_time = time.time() - start_total_time
             descriptor.update({
                 "total_time": total_time,
                 "total_test_time": total_test_time,
-                "total_train_time": total_time - total_test_time,   # It's maybe similar to build_time
+                "train_time": build_time,   # Duplicate of build_time
+                "test_time": test_time,
                 "build_time": build_time,
                 "index_size": index_size,
                 "algo": definition.algorithm,
