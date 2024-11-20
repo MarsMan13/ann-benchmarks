@@ -40,6 +40,7 @@ def run_individual_query(algo: BaseANN, X_train: numpy.array, X_test: numpy.arra
     )
 
     best_search_time = float("inf")
+    test_times = []
     for i in range(run_count):
         print("Run %d/%d..." % (i + 1, run_count))
         # a bit dumb but can't be a scalar since of Python's scoping rules
@@ -130,7 +131,9 @@ def run_individual_query(algo: BaseANN, X_train: numpy.array, X_test: numpy.arra
         search_time = total_time / len(X_test)
         avg_candidates = total_candidates / len(X_test)
         best_search_time = min(best_search_time, search_time)
-
+        test_times.append(total_time)
+        
+    test_times = numpy.array(test_times)
     verbose = hasattr(algo, "query_verbose")
     attrs = {
         "batch_mode": batch,
@@ -141,6 +144,10 @@ def run_individual_query(algo: BaseANN, X_train: numpy.array, X_test: numpy.arra
         "run_count": run_count,
         "distance": distance,
         "count": int(count),
+        "max_test_time" : numpy.max(test_times),
+        "min_test_time" : numpy.min(test_times),
+        "avg_test_time" : numpy.mean(test_times),
+        "med_test_time" : numpy.median(test_times),
     }
     additional = algo.get_additional()
     for k in additional:
@@ -204,6 +211,7 @@ def run(definition: Definition, dataset_name: str, count: int, run_count: int, b
         run_count (int): The number of runs.
         batch (bool): If true, runs in batch mode.
     """
+    total_time = time.time()
     algo = instantiate_algorithm(definition)
     assert not definition.query_argument_groups or hasattr(
         algo, "set_query_arguments"
@@ -226,10 +234,14 @@ function"""
             print(f"Running query argument group {pos} of {len(query_argument_groups)}...")
             if query_arguments:
                 algo.set_query_arguments(*query_arguments)
-            
+            total_test_time = time.time() 
             descriptor, results = run_individual_query(algo, X_train, X_test, distance, count, run_count, batch)
-
+            total_test_time = time.time() - total_test_time
+            total_time = time.time() - total_time
             descriptor.update({
+                "total_time": total_time,
+                "total_test_time": total_test_time,
+                "total_train_time": total_time - total_test_time,   # It's maybe similar to build_time
                 "build_time": build_time,
                 "index_size": index_size,
                 "algo": definition.algorithm,
