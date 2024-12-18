@@ -6,13 +6,16 @@ from typing import Any, Optional, Set, Tuple, Iterator
 import h5py
 
 from ann_benchmarks.definitions import Definition
+import numpy as np
 
 
 def build_result_filepath(dataset_name: Optional[str] = None, 
                           count: Optional[int] = None, 
                           definition: Optional[Definition] = None, 
                           query_arguments: Optional[Any] = None, 
-                          batch_mode: bool = False) -> str:
+                          batch_mode: bool = False,
+                          sampling: str = None
+                          ) -> str:
     """
     Constructs the filepath for storing the results.
 
@@ -31,6 +34,8 @@ def build_result_filepath(dataset_name: Optional[str] = None,
         d.append(dataset_name)
     if count:
         d.append(str(count))
+    if sampling:
+        d.append(sampling)
     if definition:
         d.append(definition.algorithm + ("-batch" if batch_mode else ""))
         data = definition.arguments + query_arguments
@@ -38,7 +43,7 @@ def build_result_filepath(dataset_name: Optional[str] = None,
     return os.path.join(*d)
 
 
-def store_results(dataset_name: str, count: int, definition: Definition, query_arguments:Any, attrs, results, batch):
+def store_results(dataset_name: str, count: int, definition: Definition, query_arguments:Any, attrs, results, batch, indices=None, sampling:str=None):
     """
     Stores results for an algorithm (and hyperparameters) running against a dataset in a HDF5 file.
 
@@ -51,7 +56,7 @@ def store_results(dataset_name: str, count: int, definition: Definition, query_a
         results (list): Results to be stored.
         batch (bool): If True, the batch mode is activated.
     """
-    filename = build_result_filepath(dataset_name, count, definition, query_arguments, batch)
+    filename = build_result_filepath(dataset_name, count, definition, query_arguments, batch, sampling=sampling)
     directory, _ = os.path.split(filename)
 
     if not os.path.isdir(directory):
@@ -63,6 +68,9 @@ def store_results(dataset_name: str, count: int, definition: Definition, query_a
         times = f.create_dataset("times", (len(results),), "f")
         neighbors = f.create_dataset("neighbors", (len(results), count), "i")
         distances = f.create_dataset("distances", (len(results), count), "f")
+
+        if indices is not None:
+            f.create_dataset("indices", data=indices)
         
         for i, (time, ds) in enumerate(results):
             times[i] = time
