@@ -19,9 +19,10 @@ from .distance import dataset_transform, metrics
 from .results import store_results
 
 import sys, os
+# TODO
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
 import auto_tuner
-from auto_tuner.sampler import RandomSampler
+from auto_tuner.dataset_sampler import RandomSampler
 
 def run_individual_query(algo: BaseANN, X_train: numpy.array, X_test: numpy.array, distance: str, count: int, 
                          run_count: int, batch: bool) -> Tuple[dict, list]:
