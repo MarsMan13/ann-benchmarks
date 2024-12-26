@@ -190,7 +190,6 @@ def _get_algorithm_definitions(point_type: str, distance_metric: str, base_dir: 
     """
     configs = load_configs(point_type, base_dir)
     definitions = {}
-
     # param `_` is filename, not specific name
     for _, config in configs.items():
         c = []
@@ -200,7 +199,6 @@ def _get_algorithm_definitions(point_type: str, distance_metric: str, base_dir: 
             c.extend(config[distance_metric])
         for cc in c:
             definitions[cc.pop("name")] = cc
-
     return definitions
 
 def list_algorithms(base_dir: str = "ann_benchmarks/algorithms") -> None:

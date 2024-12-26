@@ -288,7 +288,6 @@ def create_workers_and_execute(definitions: List[Definition], args: argparse.Nam
     for definition in definitions:
         task_queues[algorithms.index(definition.algorithm) % args.parallelism].put(definition)
     
-
     # memory_margin = 500e6  # reserve some extra memory for misc stuff
     memory_margin = 8000e6  # 8GB for other processes by CGCG
     mem_limit = int((psutil.virtual_memory().available - memory_margin) / args.parallelism)
