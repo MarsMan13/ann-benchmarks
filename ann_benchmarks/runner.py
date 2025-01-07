@@ -18,12 +18,6 @@ from .datasets import DATASETS, get_dataset
 from .distance import dataset_transform, metrics
 from .results import store_results
 
-import sys, os
-# TODO
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
-import auto_tuner
-from auto_tuner.dataset_sampler.dataset_sampler import RandomSampler
-
 def run_individual_query(algo: BaseANN, X_train: numpy.array, X_test: numpy.array, distance: str, count: int, 
                          run_count: int, batch: bool) -> Tuple[dict, list]:
     """Run a search query using the provided algorithm and report the results.
@@ -294,9 +288,18 @@ algorithm instantiated from it does not implement the set_query_arguments \
 function"""
 
     X_train, X_test, distance = load_and_transform_dataset(dataset_name)    # X_train:[TRAIN_SIZE, d], X_test:[TEST_SIZE, d]
+    # SAMPLING SETUP
+    import sys, os
+    if not os.path.isdir("/home/app/dataset_sampler"):
+        # In case of local running
+        sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
+        from auto_tuner.dataset_sampler.sampler import RandomSampler
+    else:
+        # In case of docker running
+        from dataset_sampler import RandomSampler
+    ## END OF SAMPLING SETUP
     sampler = RandomSampler(X_test)
-    # ps = [1.0, 0.5, 0.1, 0.05, 0.01]
-    ps = [0.1]
+    ps = [1.0]
     try:
         if hasattr(algo, "supports_prepared_queries"):
             algo.supports_prepared_queries()
@@ -477,6 +480,7 @@ def run_docker(
             os.path.abspath("ann_benchmarks"): {"bind": "/home/app/ann_benchmarks", "mode": "ro"},
             os.path.abspath("data"): {"bind": "/home/app/data", "mode": "ro"},
             os.path.abspath("results"): {"bind": "/home/app/results", "mode": "rw"},
+            os.path.abspath("./../auto_tuner/dataset_sampler"): {"bind": "/home/app/dataset_sampler", "mode": "ro"},
         },
         network_mode="host",
         cpuset_cpus=cpu_limit,

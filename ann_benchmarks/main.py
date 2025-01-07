@@ -294,7 +294,7 @@ def create_workers_and_execute(definitions: List[Definition], args: argparse.Nam
     ##
     cpu_cores = get_numa_nodes_and_cpus()
     # cpu_cores for this process
-    cpu_cores(4)    # hard coded 4-cores are for HOST
+    cpu_cores(0)    # n-cores are for HOST
     try:
         workers = [multiprocessing.Process(target=run_worker, args=(cpu_cores(args.cores), mem_limit, args, task_queues[i])) for i in range(args.parallelism)]
         [worker.start() for worker in workers]
