@@ -65,6 +65,8 @@ def get_numa_nodes_and_cpus():
                     numa_nodes.append(cpus)
                     
     def callback(num_cores):
+        if num_cores == -1:
+            return f"0-{multiprocessing.cpu_count() - 1}"
         for numa_node in numa_nodes:
             if num_cores <= len(numa_node):
                 cpu_cores = ",".join([numa_node.pop() for i in range(num_cores)])
@@ -135,8 +137,8 @@ def parse_arguments() -> argparse.Namespace:
     )
     parser.add_argument(
         "--cores",
-        default=1,
-        type=positive_int,
+        default=-1,
+        type=int,
         help="the number of cores for each algorithm run (only used in Docker mode)", 
     )
     parser.add_argument(

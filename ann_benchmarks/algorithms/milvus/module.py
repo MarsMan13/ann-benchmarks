@@ -257,7 +257,12 @@ class MilvusHNSW(Milvus):
             "params": {"ef": ef}
         }
         self.name = f"MilvusHNSW metric:{self._metric}, index_M:{self._index_m}, index_ef:{self._index_ef}, search_ef={ef}"
-
+        
+    # def get_memory_usage(self):
+    #     return self.get_memory_usage_by_program_from_docker_container("milvus-standalone", "milvus")
+    
+    def get_memory_usage(self):
+        return self.get_memory_usage_of_docker_container("milvus-standalone")
 
 class MilvusSCANN(Milvus):
     def __init__(self, metric, dim, index_param):

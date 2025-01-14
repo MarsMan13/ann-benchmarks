@@ -1,6 +1,7 @@
 import subprocess
 import sys
 import uuid
+import psutil
 
 import weaviate
 from weaviate.embedded import EmbeddedOptions
@@ -49,6 +50,9 @@ class Weaviate(BaseANN):
                 self.client.batch.add_data_object(
                     data_object=properties, class_name=self.class_name, uuid=uuid.UUID(int=i), vector=x
                 )
+                
+    def get_memory_usage(self):
+        return self.get_memory_usage_by_program("weaviate-embedded")
 
     def set_query_arguments(self, ef):
         self.ef = ef
