@@ -7,6 +7,9 @@ import h5py
 import numpy
 from typing import Any, Callable, Dict, Tuple
 
+# from datasets import load_dataset, dataset_dict
+# from huggingface_hub import login
+
 def download(source_url: str, destination_path: str) -> None:
     """
     Downloads a file from the provided source URL to the specified destination path
@@ -20,6 +23,25 @@ def download(source_url: str, destination_path: str) -> None:
         print(f"downloading {source_url} -> {destination_path}...")
         urlretrieve(source_url, destination_path)
 
+# def load_dataset_from_huggingface(dataset: str, data_files: list[str], cache_dir: str) -> dataset_dict.DatasetDict:
+#     """
+#     Downlaod dataset file from Huggingface by its name and load it.
+    
+#     Args:
+#         dataset (str): The name of the dataset.
+#         data_files (list[str]): The list of data files.
+#         cache_dir (str): The local path where the file should be saved.
+#     """
+#     if not os.path.exists(cache_dir):
+#         os.makedirs(cache_dir)
+#     hf_token = os.getenv("HF_TOKEN")
+#     if hf_token is Not or len(hf_token) == 0:
+#         hf_token = input("Enter your Huggingface token to access the dataset: ")
+#     login(token=hf_token)
+    
+#     ds = load_dataset(dataset, data_files=data_files, cache_dir=cache_dir)
+    
+#     return ds
 
 def get_dataset_fn(dataset_name: str) -> str:
     """
@@ -569,6 +591,16 @@ def dbpedia_entities_openai_1M(out_fn, n = None):
 
     write_output(X_train, X_test, out_fn, "angular")
 
+# def youtube_1B(out_fn: str, cache_dir="./hf_cache/") -> None:
+#     data = load_dataset_from_huggingface("dnotitia/SeahorseDB-dataset", data_files=[f"youtube-1M-dataset/*"], cache_dir=cache_dir)
+    
+#     print("preparing %s" % out_fn)
+#     print("warning: it can may take a long time (minimum 5 minutes) to prepare the dataset")
+    
+#     X = numpy.array(data["train"]["feature"])
+#     X_train, X_test = train_test_split(X, test_size=10000)
+    
+#     write_output(numpy.array(X_train), numpy.array(X_test), out_fn, "angular")
 
 DATASETS: Dict[str, Callable[[str], None]] = {
     "deep-image-96-angular": deep_image,

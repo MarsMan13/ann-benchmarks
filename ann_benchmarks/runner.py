@@ -485,6 +485,9 @@ def run_docker(
         network_mode="host",
         cpuset_cpus=cpu_limit,
         mem_limit=mem_limit,
+        # TODO: CHECK IF THIS WORKS
+        cpu_quota=-1,
+        cpu_shares=2048,
         detach=True,
     )
     logger = logging.getLogger(f"annb.{container.short_id}")

@@ -50,9 +50,17 @@ class Weaviate(BaseANN):
                 self.client.batch.add_data_object(
                     data_object=properties, class_name=self.class_name, uuid=uuid.UUID(int=i), vector=x
                 )
-                
-    def get_memory_usage(self):
-        return self.get_memory_usage_by_program("weaviate-embedded")
+    
+    # Added by CGCG
+    # TODO : validate this           
+    def get_memory_usage(self, iters=30):
+        import time
+        mems = []
+        for _ in range(iters):
+            mems.append(self.get_memory_usage_by_program("weaviate-embedded"))
+            time.sleep(0.3) 
+        # return median of memory usage
+        return sorted(mems)[len(mems) // 2]
 
     def set_query_arguments(self, ef):
         self.ef = ef

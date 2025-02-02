@@ -1,6 +1,7 @@
 from time import sleep
 from pymilvus import DataType, connections, utility, Collection, CollectionSchema, FieldSchema, DataType
 import os
+import numpy as np
 
 from ..base.module import BaseANN
 
@@ -137,6 +138,23 @@ class Milvus(BaseANN):
         utility.drop_collection(self.collection_name)
         self.stop_milvus()
 
+    # Added by CGCG
+    # TODO : validate this
+    def batch_query(self, X, n):
+        results = self.collection.search(
+            data = X.tolist(),
+            anns_field = "vector",
+            param = self.search_params,
+            limit = n,
+            output_fields=["id"]
+        )
+        ids = [[r.entity.get("id") for r in result] for result in results]
+        self.res = np.array(ids)
+    
+    # Added by CGCG
+    # TODO : validate this 
+    def get_batch_results(self):
+        return self.res 
 
 class MilvusFLAT(Milvus):
     def __init__(self, metric, dim, index_param):
@@ -257,13 +275,18 @@ class MilvusHNSW(Milvus):
             "params": {"ef": ef}
         }
         self.name = f"MilvusHNSW metric:{self._metric}, index_M:{self._index_m}, index_ef:{self._index_ef}, search_ef={ef}"
-        
-    # def get_memory_usage(self):
-    #     return self.get_memory_usage_by_program_from_docker_container("milvus-standalone", "milvus")
     
-    def get_memory_usage(self):
-        return self.get_memory_usage_of_docker_container("milvus-standalone")
-
+    # Added by CGCG
+    # TODO : validate this    
+    def get_memory_usage(self, iters=30):
+        mems = []
+        for _ in range(iters):
+            mem = self.get_memory_usage_of_docker_container("milvus-standalone")
+            if mem is not None:
+                mems.append(mem)
+            sleep(0.3)
+        return sorted(mems)[len(mems) // 2]
+    
 class MilvusSCANN(Milvus):
     def __init__(self, metric, dim, index_param):
         super().__init__(metric, dim, index_param)

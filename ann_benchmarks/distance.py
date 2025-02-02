@@ -15,7 +15,9 @@ def jaccard(a: List[int], b: List[int]) -> float:
 
 
 def norm(a):
-    return np.sum(a**2) ** 0.5
+    # TODO : Valify this
+    # return np.sum(a**2) ** 0.5
+    return np.sum(a**2) ** 0.5 + 1e-30
 
 
 def euclidean(a, b):
