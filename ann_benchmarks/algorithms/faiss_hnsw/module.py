@@ -20,7 +20,7 @@ class FaissHNSW(Faiss):
             X = X.astype(np.float32)
 
         self.index.add(X)
-        # TODO : Report Issue
+        # CGCG,TODO : Report Issue
         # faiss.omp_set_num_threads(1)
 
     def set_query_arguments(self, ef):

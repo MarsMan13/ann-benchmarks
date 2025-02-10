@@ -51,8 +51,7 @@ class Weaviate(BaseANN):
                     data_object=properties, class_name=self.class_name, uuid=uuid.UUID(int=i), vector=x
                 )
     
-    # Added by CGCG
-    # TODO : validate this           
+    # CGCG,TODO : validate this           
     def get_memory_usage(self, iters=30):
         import time
         mems = []
