@@ -14,7 +14,7 @@ def build_result_filepath(dataset_name: Optional[str] = None,
                           definition: Optional[Definition] = None, 
                           query_arguments: Optional[Any] = None, 
                           batch_mode: bool = False,
-                          sampling: str = None
+                          sampling: str = "1.0"
                           ) -> str:
     """
     Constructs the filepath for storing the results.

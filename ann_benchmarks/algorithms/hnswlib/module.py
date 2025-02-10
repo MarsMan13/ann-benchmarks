@@ -16,7 +16,7 @@ class HnswLib(BaseANN):
         # Only l2 is supported currently
         self.p = hnswlib.Index(space=self.metric, dim=len(X[0]))
         # TODO : validate this
-        self.p.set_num_threads(8)
+        # self.p.set_num_threads(8)
         self.p.init_index(
             max_elements=len(X), ef_construction=self.method_param["efConstruction"], M=self.method_param["M"]
         )
@@ -35,7 +35,7 @@ class HnswLib(BaseANN):
     
     def batch_query(self, X, n):
         # TODO : validate this
-        self.p.set_num_threads(8)
+        # self.p.set_num_threads(8)
         self.res = self.p.knn_query(X, k=n)
         
     def get_batch_results(self):
