@@ -8,5 +8,7 @@ RUN python3 --version | grep 'Python 3.10'
 WORKDIR /home/app
 COPY requirements.txt run_algorithm.py ./
 RUN pip3 install -r requirements.txt
+# TODO,CGCG : validate the below line
+RUN pip3 install datasets huggingface_hub
 
 ENTRYPOINT ["python3", "-u", "run_algorithm.py"]

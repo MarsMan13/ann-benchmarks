@@ -8,7 +8,8 @@ ENV PATH /root/anaconda3/bin:$PATH
 
 RUN python3 -m pip install ansicolors==1.1.8 docker==5.0.2
 RUN conda install -c pytorch faiss-cpu h5py numpy 
-
+# TODO,CGCG : validate the below line
+RUN python3 -m pip install datasets huggingface_hub
 # https://developpaper.com/a-pit-of-mkl-library-in-linux-anaconda/
 ENV LD_PRELOAD /root/anaconda3/lib/libmkl_core.so:/root/anaconda3/lib/libmkl_sequential.so 
 

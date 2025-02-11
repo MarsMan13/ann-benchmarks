@@ -7,14 +7,16 @@ import h5py
 import numpy
 from typing import Any, Callable, Dict, Tuple
 
-# from datasets import load_dataset, dataset_dict
-# from huggingface_hub import login
+import getpass
+from datasets import load_dataset, dataset_dict
+from huggingface_hub import login
+
 
 def download(source_url: str, destination_path: str) -> None:
     """
     Downloads a file from the provided source URL to the specified destination path
     only if the file doesn't already exist at the destination.
-    
+
     Args:
         source_url (str): The URL of the file to download.
         destination_path (str): The local path where the file should be saved.
@@ -23,33 +25,41 @@ def download(source_url: str, destination_path: str) -> None:
         print(f"downloading {source_url} -> {destination_path}...")
         urlretrieve(source_url, destination_path)
 
-# def load_dataset_from_huggingface(dataset: str, data_files: list[str], cache_dir: str) -> dataset_dict.DatasetDict:
-#     """
-#     Downlaod dataset file from Huggingface by its name and load it.
-    
-#     Args:
-#         dataset (str): The name of the dataset.
-#         data_files (list[str]): The list of data files.
-#         cache_dir (str): The local path where the file should be saved.
-#     """
-#     if not os.path.exists(cache_dir):
-#         os.makedirs(cache_dir)
-#     hf_token = os.getenv("HF_TOKEN")
-#     if hf_token is Not or len(hf_token) == 0:
-#         hf_token = input("Enter your Huggingface token to access the dataset: ")
-#     login(token=hf_token)
-    
-#     ds = load_dataset(dataset, data_files=data_files, cache_dir=cache_dir)
-    
-#     return ds
+
+def load_dataset_from_huggingface(dataset: str, data_files: list, cache_dir: str) -> dataset_dict.DatasetDict:
+    """
+    Downlaod dataset file from Huggingface by its name and load it.
+
+    Args:
+        dataset (str): The name of the dataset.
+        data_files (list[str]): The list of data files.
+        cache_dir (str): The local path where the file should be saved.
+    """
+    if not os.path.exists(cache_dir):
+        os.makedirs(cache_dir)
+
+    dataset_cached = all(os.path.exists(os.path.join(cache_dir, file)) for file in data_files)
+
+    if not dataset_cached:
+        hf_token = os.getenv("HF_TOKEN")
+        if hf_token is None or len(hf_token) == 0:
+            hf_token = getpass.getpass("Enter your Huggingface token to access the dataset: ")
+        login(token=hf_token)
+        print(f"Downloading dataset {dataset}...")
+
+    print("Loading dataset from cache or downloading if not available...")
+    ds = load_dataset(dataset, data_files=data_files, cache_dir=cache_dir)
+
+    return ds
+
 
 def get_dataset_fn(dataset_name: str) -> str:
     """
     Returns the full file path for a given dataset name in the data directory.
-    
+
     Args:
         dataset_name (str): The name of the dataset.
-    
+
     Returns:
         str: The full file path of the dataset.
     """
@@ -61,12 +71,12 @@ def get_dataset_fn(dataset_name: str) -> str:
 def get_dataset(dataset_name: str) -> Tuple[h5py.File, int]:
     """
     Fetches a dataset by downloading it from a known URL or creating it locally
-    if it's not already present. The dataset file is then opened for reading, 
+    if it's not already present. The dataset file is then opened for reading,
     and the file handle and the dimension of the dataset are returned.
-    
+
     Args:
         dataset_name (str): The name of the dataset.
-    
+
     Returns:
         Tuple[h5py.File, int]: A tuple containing the opened HDF5 file object and
             the dimension of the dataset.
@@ -89,19 +99,21 @@ def get_dataset(dataset_name: str) -> Tuple[h5py.File, int]:
     return hdf5_file, dimension
 
 
-def write_output(train: numpy.ndarray, test: numpy.ndarray, fn: str, distance: str, point_type: str = "float", count: int = 100) -> None:
+def write_output(
+    train: numpy.ndarray, test: numpy.ndarray, fn: str, distance: str, point_type: str = "float", count: int = 100
+) -> None:
     """
-    Writes the provided training and testing data to an HDF5 file. It also computes 
-    and stores the nearest neighbors and their distances for the test set using a 
+    Writes the provided training and testing data to an HDF5 file. It also computes
+    and stores the nearest neighbors and their distances for the test set using a
     brute-force approach.
-    
+
     Args:
         train (numpy.ndarray): The training data.
         test (numpy.ndarray): The testing data.
         filename (str): The name of the HDF5 file to which data should be written.
         distance_metric (str): The distance metric to use for computing nearest neighbors.
         point_type (str, optional): The type of the data points. Defaults to "float".
-        neighbors_count (int, optional): The number of nearest neighbors to compute for 
+        neighbors_count (int, optional): The number of nearest neighbors to compute for
             each point in the test set. Defaults to 100.
     """
     from ann_benchmarks.algorithms.bruteforce.module import BruteForceBLAS
@@ -142,19 +154,21 @@ param: train and test are arrays of arrays of indices.
 """
 
 
-def write_sparse_output(train: numpy.ndarray, test: numpy.ndarray, fn: str, distance: str, dimension: int, count: int = 100) -> None:
+def write_sparse_output(
+    train: numpy.ndarray, test: numpy.ndarray, fn: str, distance: str, dimension: int, count: int = 100
+) -> None:
     """
-    Writes the provided sparse training and testing data to an HDF5 file. It also computes 
-    and stores the nearest neighbors and their distances for the test set using a 
+    Writes the provided sparse training and testing data to an HDF5 file. It also computes
+    and stores the nearest neighbors and their distances for the test set using a
     brute-force approach.
-    
+
     Args:
         train (numpy.ndarray): The sparse training data.
         test (numpy.ndarray): The sparse testing data.
         filename (str): The name of the HDF5 file to which data should be written.
         distance_metric (str): The distance metric to use for computing nearest neighbors.
         dimension (int): The dimensionality of the data.
-        neighbors_count (int, optional): The number of nearest neighbors to compute for 
+        neighbors_count (int, optional): The number of nearest neighbors to compute for
             each point in the test set. Defaults to 100.
     """
     from ann_benchmarks.algorithms.bruteforce.module import BruteForceBLAS
@@ -201,15 +215,17 @@ def write_sparse_output(train: numpy.ndarray, test: numpy.ndarray, fn: str, dist
             distances_ds[i] = [dist for _, dist in res]
 
 
-def train_test_split(X: numpy.ndarray, test_size: int = 10000, dimension: int = None) -> Tuple[numpy.ndarray, numpy.ndarray]:
+def train_test_split(
+    X: numpy.ndarray, test_size: int = 10000, dimension: int = None
+) -> Tuple[numpy.ndarray, numpy.ndarray]:
     """
     Splits the provided dataset into a training set and a testing set.
-    
+
     Args:
         X (numpy.ndarray): The dataset to split.
-        test_size (int, optional): The number of samples to include in the test set. 
+        test_size (int, optional): The number of samples to include in the test set.
             Defaults to 10000.
-        dimension (int, optional): The dimensionality of the data. If not provided, 
+        dimension (int, optional): The dimensionality of the data. If not provided,
             it will be inferred from the second dimension of X. Defaults to None.
 
     Returns:
@@ -575,7 +591,8 @@ def movielens10m(out_fn: str) -> None:
 def movielens20m(out_fn: str) -> None:
     movielens("ml-20m.zip", "ml-20m/ratings.csv", out_fn, ",", True)
 
-def dbpedia_entities_openai_1M(out_fn, n = None):
+
+def dbpedia_entities_openai_1M(out_fn, n=None):
     from sklearn.model_selection import train_test_split
     from datasets import load_dataset
     import numpy as np
@@ -584,23 +601,30 @@ def dbpedia_entities_openai_1M(out_fn, n = None):
     if n is not None and n >= 100_000:
         data = data.select(range(n))
 
-    embeddings = data.to_pandas()['openai'].to_numpy()
+    embeddings = data.to_pandas()["openai"].to_numpy()
     embeddings = np.vstack(embeddings).reshape((-1, 1536))
 
     X_train, X_test = train_test_split(embeddings, test_size=10_000, random_state=42)
 
     write_output(X_train, X_test, out_fn, "angular")
 
-# def youtube_1B(out_fn: str, cache_dir="./hf_cache/") -> None:
-#     data = load_dataset_from_huggingface("dnotitia/SeahorseDB-dataset", data_files=[f"youtube-1M-dataset/*"], cache_dir=cache_dir)
-    
-#     print("preparing %s" % out_fn)
-#     print("warning: it can may take a long time (minimum 5 minutes) to prepare the dataset")
-    
-#     X = numpy.array(data["train"]["feature"])
-#     X_train, X_test = train_test_split(X, test_size=10000)
-    
-#     write_output(numpy.array(X_train), numpy.array(X_test), out_fn, "angular")
+
+def youtube(out_fn: str, dataset_size: int, cache_dir="./data/hf_cache/") -> None:
+    assert type(dataset_size) == int, "dataset_size must be an integer, unit in million"
+    assert dataset_size in [1, 2, 15], "dataset_size must be one of 1(M), 2(M), 15(M)"
+
+    data = load_dataset_from_huggingface(
+        "dnotitia/SeahorseDB-dataset", data_files=[f"youtube-1M-dataset/*"], cache_dir=cache_dir
+    )
+
+    print("preparing %s" % out_fn)
+    print("warning: it can may take a long time (minimum 5 minutes) to prepare the dataset")
+
+    X = numpy.array(data["train"]["feature"])
+    X_train, X_test = train_test_split(X, test_size=10000)
+
+    write_output(numpy.array(X_train), numpy.array(X_test), out_fn, "angular")
+
 
 DATASETS: Dict[str, Callable[[str], None]] = {
     "deep-image-96-angular": deep_image,
@@ -631,9 +655,12 @@ DATASETS: Dict[str, Callable[[str], None]] = {
     "movielens1m-jaccard": movielens1m,
     "movielens10m-jaccard": movielens10m,
     "movielens20m-jaccard": movielens20m,
+    "youtube-1024-angular": lambda out_fn: youtube(out_fn, 1, cache_dir="./data/hf_cache/"),
 }
 
-DATASETS.update({
-    f"dbpedia-openai-{n//1000}k-angular": lambda out_fn, i=n: dbpedia_entities_openai_1M(out_fn, i)
-    for n in range(100_000, 1_100_000, 100_000)
-})
+DATASETS.update(
+    {
+        f"dbpedia-openai-{n//1000}k-angular": lambda out_fn, i=n: dbpedia_entities_openai_1M(out_fn, i)
+        for n in range(100_000, 1_100_000, 100_000)
+    }
+)
