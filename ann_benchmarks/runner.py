@@ -152,75 +152,6 @@ def run_individual_query(algo: BaseANN, X_train: numpy.array, X_test: numpy.arra
         attrs[k] = additional[k]
     return (attrs, results)
 
-def run_individual_query_solution(algo: BaseANN, X_train: numpy.array, X_test: numpy.array, distance: str, count: int, 
-                         run_count: int, batch: bool) -> Tuple[dict, list]:
-    prepared_queries = (batch and hasattr(algo, "prepare_batch_query")) or (
-        (not batch) and hasattr(algo, "prepare_query")
-    )
-    best_search_time = float("inf")
-    test_times = []
-    for i in range(run_count):
-        print("Run %d/%d..." % (i + 1, run_count))
-        # a bit dumb but can't be a scalar since of Python's scoping rules
-        n_items_processed = [0]
-        def single_query(v: numpy.array) -> Tuple[float, List[Tuple[int, float]]]:
-            if prepared_queries:
-                algo.prepare_query(v, count)
-                start = time.time()
-                algo.run_prepared_query()
-                total = time.time() - start
-                candidates = algo.get_prepared_query_results()
-            else:
-                start = time.time()
-                candidates = algo.query(v, count)
-                total = time.time() - start
-
-            # make sure all returned indices are unique
-            assert len(candidates) == len(set(candidates)), "Implementation returned duplicated candidates"
-
-            candidates = [
-                (int(idx), float(metrics[distance].distance(v, X_train[idx]))) for idx in candidates  # noqa
-            ]
-            n_items_processed[0] += 1
-            if n_items_processed[0] % 1000 == 0:
-                print("Processed %d/%d queries..." % (n_items_processed[0], len(X_test)))
-            if len(candidates) > count:
-                print(
-                    "warning: algorithm %s returned %d results, but count"
-                    " is only %d)" % (algo, len(candidates), count)
-                )
-            return (total, candidates)
-        assert not batch
-        results = [single_query(x) for x in X_test]
-
-        total_time = sum(time for time, _ in results)
-        total_candidates = sum(len(candidates) for _, candidates in results)
-        search_time = total_time / len(X_test)
-        avg_candidates = total_candidates / len(X_test)
-        best_search_time = min(best_search_time, search_time)
-        test_times.append(total_time)
-
-    test_times = numpy.array(test_times)
-    verbose = hasattr(algo, "query_verbose")
-    attrs = {
-        "batch_mode": batch,
-        "best_search_time": best_search_time,
-        "candidates": avg_candidates,
-        "expect_extra": verbose,
-        "name": str(algo),
-        "run_count": run_count,
-        "distance": distance,
-        "count": int(count),
-        "max_test_time" : numpy.max(test_times),
-        "min_test_time" : numpy.min(test_times),
-        "avg_test_time" : numpy.mean(test_times),
-        "med_test_time" : numpy.median(test_times),
-    }
-    additional = algo.get_additional()
-    for k in additional:
-        attrs[k] = additional[k]
-    return (attrs, results)
-
 
 def load_and_transform_dataset(dataset_name: str) -> Tuple[
         Union[numpy.ndarray, List[numpy.ndarray]],
@@ -334,55 +265,6 @@ function"""
     finally:
         algo.done()
 
-def run_solution(definition: Definition, dataset_name: str, count: int, run_count: int, batch: bool) -> None:
-    ## dataset ##
-    dataset, _ = get_dataset(dataset_name)
-    true_nn_distance = numpy.array(dataset["distances"])
-    ####
-    start_total_time = time.time()
-    algo = instantiate_algorithm(definition)
-    assert not definition.query_argument_groups or hasattr(
-        algo, "set_query_arguments"
-    ), f"""\
-error: query argument groups have been specified for {definition.module}.{definition.constructor}({definition.arguments}), but the \
-algorithm instantiated from it does not implement the set_query_arguments \
-function"""
-
-    X_train, X_test, distance = load_and_transform_dataset(dataset_name)
-    try:
-        if hasattr(algo, "supports_prepared_queries"):
-            algo.supports_prepared_queries()
-
-        build_time, index_size = build_index(algo, X_train)
-
-        # query_argument_groups = definition.query_argument_groups or [[]]  # Ensure at least one iteration
-        query_argument_groups = [[36], [62], [128], [256], [512], [1024]]
-        total_test_time = 0
-        for pos, query_arguments in enumerate(query_argument_groups, 1):
-            print(f"Running query argument group {pos} of {len(query_argument_groups)}...")
-            if query_arguments:
-                algo.set_query_arguments(*query_arguments)
-            test_time = time.time() 
-            descriptor, results = run_individual_query_solution(algo, X_train, X_test, distance, count, run_count, batch)
-            # desciptor : meta-data
-            # results : [ (time, [(index, distance)]) ]
-            test_time = time.time() - test_time
-            total_test_time += test_time
-            total_time = time.time() - start_total_time
-            descriptor.update({
-                "total_time": total_time,
-                "total_test_time": total_test_time,
-                "train_time": build_time,   # Duplicate of build_time
-                "test_time": test_time,
-                "build_time": build_time,
-                "index_size": index_size,
-                "algo": definition.algorithm,
-                "dataset": dataset_name
-            })
-
-            store_results(dataset_name, count, definition, query_arguments, descriptor, results, batch)
-    finally:
-        algo.done()
 
 def run_from_cmdline():
     """Calls the function `run` using arguments from the command line. See `ArgumentParser` for 
@@ -472,20 +354,29 @@ def run_docker(
     if mem_limit is None:
         mem_limit = psutil.virtual_memory().available
 
+    import os
+    ann_benchmarks_root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    hnsw_auto_tuner_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     container = client.containers.run(
         definition.docker_tag,
         cmd,
+        # volumes={
+        #     os.path.abspath("/var/run/docker.sock"): {"bind": "/var/run/docker.sock", "mode": "rw"},
+        #     os.path.abspath("ann_benchmarks"): {"bind": "/home/app/ann_benchmarks", "mode": "ro"},
+        #     os.path.abspath("data"): {"bind": "/home/app/data", "mode": "ro"},
+        #     os.path.abspath("results"): {"bind": "/home/app/results", "mode": "rw"},
+        #     os.path.abspath("./../auto_tuner/dataset_sampler"): {"bind": "/home/app/dataset_sampler", "mode": "ro"},
+        # },
         volumes={
             os.path.abspath("/var/run/docker.sock"): {"bind": "/var/run/docker.sock", "mode": "rw"},
-            os.path.abspath("ann_benchmarks"): {"bind": "/home/app/ann_benchmarks", "mode": "ro"},
-            os.path.abspath("data"): {"bind": "/home/app/data", "mode": "ro"},
-            os.path.abspath("results"): {"bind": "/home/app/results", "mode": "rw"},
-            os.path.abspath("./../auto_tuner/dataset_sampler"): {"bind": "/home/app/dataset_sampler", "mode": "ro"},
+            os.path.abspath(os.path.join(ann_benchmarks_root_dir, "ann_benchmarks")): {"bind": "/home/app/ann_benchmarks", "mode": "ro"},
+            os.path.abspath(os.path.join(ann_benchmarks_root_dir, "data")): {"bind": "/home/app/data", "mode": "ro"},
+            os.path.abspath(os.path.join(ann_benchmarks_root_dir, "results")): {"bind": "/home/app/results", "mode": "rw"},
+            os.path.abspath(os.path.join(hnsw_auto_tuner_dir, "auto_tuner/dataset_sampler")): {"bind": "/home/app/dataset_sampler", "mode": "ro"},
         },
         network_mode="host",
         cpuset_cpus=cpu_limit,
         mem_limit=mem_limit,
-        # TODO: CHECK IF THIS WORKS
         cpu_quota=-1,
         cpu_shares=2048,
         detach=True,

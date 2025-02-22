@@ -18,7 +18,6 @@ from .constants import INDEX_DIR
 from .datasets import DATASETS, get_dataset
 from .results import build_result_filepath
 from .runner import run, run_docker
-from .runner import run_solution
 
 
 logging.config.fileConfig("logging.conf")

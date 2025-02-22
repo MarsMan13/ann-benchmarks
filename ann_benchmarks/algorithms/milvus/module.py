@@ -138,7 +138,7 @@ class Milvus(BaseANN):
         utility.drop_collection(self.collection_name)
         self.stop_milvus()
 
-    # CGCG,TODO : validate this
+    # TODO,CGCG : validate this
     def batch_query(self, X, n):
         results = self.collection.search(
             data = X.tolist(),
@@ -150,7 +150,7 @@ class Milvus(BaseANN):
         ids = [[r.entity.get("id") for r in result] for result in results]
         self.res = np.array(ids)
     
-    # CGCG,TODO : validate this 
+    # TODO,CGCG : validate this 
     def get_batch_results(self):
         return self.res 
 
@@ -274,7 +274,7 @@ class MilvusHNSW(Milvus):
         }
         self.name = f"MilvusHNSW metric:{self._metric}, index_M:{self._index_m}, index_ef:{self._index_ef}, search_ef={ef}"
     
-    # CGCG,TODO : validate this    
+    # TODO,CGCG : validate this    
     def get_memory_usage(self, iters=30):
         mems = []
         for _ in range(iters):
